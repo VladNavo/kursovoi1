@@ -1,0 +1,105 @@
+{
+  "project_info": {
+    "project_number": "201660176893",
+    "project_id": "atlas-ap-f451a",
+    "storage_bucket": "atlas-ap-f451a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:201660176893:android:5e5cb6de8de4087fdc2194",
+        "android_client_info": {
+          "package_name": "com.example.kursovoi"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "201660176893-hhairf28e7oja41qcqa7s8b66veqjj6o.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAqHp6k1Fv6miCzpafjYq2r1cmNwRC9d40"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "201660176893-hhairf28e7oja41qcqa7s8b66veqjj6o.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:201660176893:android:9eb680dab99b66efdc2194",
+        "android_client_info": {
+          "package_name": "com.example.kursovoi1"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "201660176893-hhairf28e7oja41qcqa7s8b66veqjj6o.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAqHp6k1Fv6miCzpafjYq2r1cmNwRC9d40"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "201660176893-hhairf28e7oja41qcqa7s8b66veqjj6o.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:201660176893:android:df775df4cb43b19bdc2194",
+        "android_client_info": {
+          "package_name": "com.example.kursovoiversion6"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "201660176893-17dkeq7p80f17725jhqnj7f00iljuj1e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.kursovoiversion6",
+            "certificate_hash": "5eb2b3b40a198e92ae4401783f30f0d8e328fe84"
+          }
+        },
+        {
+          "client_id": "201660176893-hhairf28e7oja41qcqa7s8b66veqjj6o.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAqHp6k1Fv6miCzpafjYq2r1cmNwRC9d40"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "201660176893-hhairf28e7oja41qcqa7s8b66veqjj6o.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
