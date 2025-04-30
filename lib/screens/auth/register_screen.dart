@@ -68,7 +68,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         title: const Text('Регистрация'),
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Form(
             key: _formKey,
@@ -199,6 +199,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   },
                   child: const Text('Уже есть аккаунт? Войти'),
                 ),
+                const SizedBox(height: 100),
               ],
             ),
           ),

@@ -70,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 48),
               Center(
                 child: Text(
-                  'АТЛАС',
+                  'ЛакиБус',
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                         color: Theme.of(context).colorScheme.primary,
                         fontWeight: FontWeight.bold,

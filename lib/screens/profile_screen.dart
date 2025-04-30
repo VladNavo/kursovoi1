@@ -194,11 +194,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     Row(
                       children: [
-                        const CircleAvatar(
-                          radius: 30,
-                          child: Icon(Icons.person, size: 30),
-                        ),
-                        const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -396,28 +391,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(height: 16),
                       if (_vehicle != null) ...[
-                        ListTile(
-                          leading: const Icon(Icons.directions_car),
-                          title: Text('${_vehicle!.brand} ${_vehicle!.model}'),
-                          subtitle: Text('Гос. номер: ${_vehicle!.licensePlate}'),
-                        ),
-                        const Divider(),
-                        ListTile(
-                          leading: const Icon(Icons.color_lens),
-                          title: const Text('Цвет'),
-                          subtitle: Text(_vehicle!.color),
-                        ),
-                        const Divider(),
-                        ListTile(
-                          leading: const Icon(Icons.calendar_today),
-                          title: const Text('Год выпуска'),
-                          subtitle: Text(_vehicle!.year),
-                        ),
-                        const Divider(),
-                        ListTile(
-                          leading: const Icon(Icons.people),
-                          title: const Text('Количество мест'),
-                          subtitle: Text(_vehicle!.seats.toString()),
+                        Card(
+                          elevation: 0,
+                          color: Theme.of(context).colorScheme.surfaceVariant,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: [
+                                ListTile(
+                                  leading: const Icon(Icons.directions_car),
+                                  title: Text('${_vehicle!.brand} ${_vehicle!.model}'),
+                                  subtitle: Text('Гос. номер: ${_vehicle!.licensePlate}'),
+                                ),
+                                const Divider(),
+                                ListTile(
+                                  leading: const Icon(Icons.color_lens),
+                                  title: const Text('Цвет'),
+                                  subtitle: Text(_vehicle!.color),
+                                ),
+                                const Divider(),
+                                ListTile(
+                                  leading: const Icon(Icons.calendar_today),
+                                  title: const Text('Год выпуска'),
+                                  subtitle: Text(_vehicle!.year),
+                                ),
+                                const Divider(),
+                                ListTile(
+                                  leading: const Icon(Icons.people),
+                                  title: const Text('Количество мест'),
+                                  subtitle: Text(_vehicle!.seats.toString()),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton(
@@ -456,7 +462,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   );
                 },
               ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 150),
           ],
         ),
       ),
