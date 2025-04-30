@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:kursovoi1/models/route_model.dart';
 import 'package:kursovoi1/services/route_service.dart';
 import 'package:kursovoi1/screens/admin/create_route_screen.dart';
+import 'package:kursovoi1/services/user_service.dart';
 
 class AdminRoutesScreen extends StatefulWidget {
   const AdminRoutesScreen({super.key});
@@ -12,20 +13,52 @@ class AdminRoutesScreen extends StatefulWidget {
 
 class _AdminRoutesScreenState extends State<AdminRoutesScreen> {
   final _routeService = RouteService();
+  final _userService = UserService();
+
+  Future<void> _clearAllRoutes() async {
+    try {
+      await _routeService.clearAllRoutes();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Все маршруты удалены')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка при удалении маршрутов: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Управление маршрутами'),
+        title: const Text('Маршруты'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.delete_forever),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const CreateRouteScreen(),
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Удалить все маршруты?'),
+                  content: const Text('Вы уверены, что хотите удалить все маршруты? Это действие нельзя отменить.'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Отмена'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        _clearAllRoutes();
+                        Navigator.pop(context);
+                      },
+                      child: const Text('Удалить', style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
                 ),
               );
             },
@@ -68,10 +101,7 @@ class _AdminRoutesScreenState extends State<AdminRoutesScreen> {
                           Text('Время отправления: ${route.departureTime.toString()}'),
                           Text('Свободных мест: ${route.availableSeats}'),
                           Text('Цена: ${route.price} руб.'),
-                          Text('Статус: ${route.status}'),
-                          const SizedBox(height: 8),
-                          const Text('Пассажиры:'),
-                          ...route.passengerIds.map((id) => Text('- $id')),
+                          Text('Статус: ${_getStatusText(route.status)}'),
                           const SizedBox(height: 16),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
@@ -114,5 +144,16 @@ class _AdminRoutesScreenState extends State<AdminRoutesScreen> {
         },
       ),
     );
+  }
+
+  String _getStatusText(RouteStatus status) {
+    switch (status) {
+      case RouteStatus.active:
+        return 'Активен';
+      case RouteStatus.completed:
+        return 'Завершен';
+      case RouteStatus.cancelled:
+        return 'Отменен';
+    }
   }
 } 

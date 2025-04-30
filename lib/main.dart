@@ -6,6 +6,7 @@ import 'package:kursovoi1/screens/main_screen.dart';
 import 'package:kursovoi1/theme/app_theme.dart';
 import 'package:kursovoi1/services/auth_service.dart';
 import 'package:kursovoi1/models/user_model.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,6 +15,7 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    await initializeDateFormatting('ru_RU', null);
     print('Firebase успешно инициализирован');
   } catch (e) {
     print('Ошибка инициализации Firebase: $e');

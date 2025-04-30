@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:kursovoi1/models/booking_model.dart';
-import 'package:kursovoi1/models/ride_model.dart';
+import 'package:kursovoi1/models/route_model.dart';
+import 'package:kursovoi1/services/booking_service.dart';
+import 'package:kursovoi1/services/auth_service.dart';
+import 'package:kursovoi1/services/route_service.dart';
+import 'package:intl/intl.dart';
 
 class MyRidesScreen extends StatefulWidget {
   const MyRidesScreen({super.key});
@@ -11,96 +15,24 @@ class MyRidesScreen extends StatefulWidget {
 
 class _MyRidesScreenState extends State<MyRidesScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final List<BookingModel> _activeBookings = [
-    BookingModel(
-      id: '1',
-      userId: 'user1',
-      ride: RideModel(
-        id: '1',
-        from: 'Москва',
-        to: 'Санкт-Петербург',
-        departureTime: DateTime.now().add(const Duration(days: 1)),
-        price: 2500,
-        totalSeats: 4,
-        availableSeats: 3,
-        driverId: 'driver1',
-        carModel: 'Toyota Camry',
-        carNumber: 'A123BC777',
-      ),
-      bookingDate: DateTime.now(),
-      status: BookingStatus.confirmed,
-      seats: 1,
-      totalPrice: 2500,
-    ),
-    BookingModel(
-      id: '2',
-      userId: 'user1',
-      ride: RideModel(
-        id: '2',
-        from: 'Москва',
-        to: 'Казань',
-        departureTime: DateTime.now().add(const Duration(days: 3)),
-        price: 2000,
-        totalSeats: 3,
-        availableSeats: 2,
-        driverId: 'driver2',
-        carModel: 'Kia K5',
-        carNumber: 'B456DE777',
-      ),
-      bookingDate: DateTime.now(),
-      status: BookingStatus.pending,
-      seats: 2,
-      totalPrice: 4000,
-    ),
-  ];
-
-  final List<BookingModel> _historyBookings = [
-    BookingModel(
-      id: '3',
-      userId: 'user1',
-      ride: RideModel(
-        id: '3',
-        from: 'Москва',
-        to: 'Нижний Новгород',
-        departureTime: DateTime.now().subtract(const Duration(days: 5)),
-        price: 1800,
-        totalSeats: 3,
-        availableSeats: 0,
-        driverId: 'driver3',
-        carModel: 'Hyundai Solaris',
-        carNumber: 'C789EF777',
-      ),
-      bookingDate: DateTime.now().subtract(const Duration(days: 6)),
-      status: BookingStatus.completed,
-      seats: 1,
-      totalPrice: 1800,
-    ),
-    BookingModel(
-      id: '4',
-      userId: 'user1',
-      ride: RideModel(
-        id: '4',
-        from: 'Москва',
-        to: 'Тула',
-        departureTime: DateTime.now().subtract(const Duration(days: 10)),
-        price: 1200,
-        totalSeats: 3,
-        availableSeats: 1,
-        driverId: 'driver4',
-        carModel: 'Lada Vesta',
-        carNumber: 'D012GH777',
-      ),
-      bookingDate: DateTime.now().subtract(const Duration(days: 11)),
-      status: BookingStatus.cancelled,
-      seats: 1,
-      totalPrice: 1200,
-    ),
-  ];
+  final _bookingService = BookingService();
+  final _authService = AuthService();
+  final _routeService = RouteService();
+  final _dateFormat = DateFormat('dd.MM.yyyy HH:mm');
+  String? _userId;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final user = await _authService.currentUser;
+    if (user != null) {
+      setState(() => _userId = user.id);
+    }
   }
 
   @override
@@ -111,6 +43,12 @@ class _MyRidesScreenState extends State<MyRidesScreen> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
+    if (_userId == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Мои поездки'),
@@ -125,96 +63,140 @@ class _MyRidesScreenState extends State<MyRidesScreen> with SingleTickerProvider
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildBookingsList(_activeBookings),
-          _buildBookingsList(_historyBookings),
+          _buildBookingsList(_userId!, isActive: true),
+          _buildBookingsList(_userId!, isActive: false),
         ],
       ),
     );
   }
 
-  Widget _buildBookingsList(List<BookingModel> bookings) {
-    if (bookings.isEmpty) {
-      return const Center(
-        child: Text('Нет поездок'),
-      );
-    }
+  Widget _buildBookingsList(String userId, {required bool isActive}) {
+    return StreamBuilder<List<BookingModel>>(
+      stream: _bookingService.getUserBookings(userId),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text('Ошибка: ${snapshot.error}'));
+        }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: bookings.length,
-      itemBuilder: (context, index) {
-        final booking = bookings[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 16),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '${booking.ride.from} → ${booking.ride.to}',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                    ),
-                    _buildStatusChip(booking.status),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Отправление: ${booking.ride.departureTime.toString().split('.')[0]}',
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Автомобиль: ${booking.ride.carModel} (${booking.ride.carNumber})',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Забронировано мест: ${booking.seats}',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    Text(
-                      '${booking.totalPrice} ₽',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                    ),
-                  ],
-                ),
-                if (booking.status == BookingStatus.pending) ...[
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {
-                            // TODO: Implement cancel booking
-                          },
-                          child: const Text('Отменить'),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            // TODO: Implement contact driver
-                          },
-                          child: const Text('Связаться с водителем'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final bookings = snapshot.data!;
+        final filteredBookings = bookings.where((booking) {
+          if (isActive) {
+            return booking.status == BookingStatus.pending ||
+                   booking.status == BookingStatus.confirmed;
+          } else {
+            return booking.status == BookingStatus.cancelled ||
+                   booking.status == BookingStatus.noShow;
+          }
+        }).toList();
+
+        if (filteredBookings.isEmpty) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text('Нет поездок'),
             ),
-          ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: filteredBookings.length,
+          itemBuilder: (context, index) {
+            final booking = filteredBookings[index];
+            return FutureBuilder<RouteModel?>(
+              future: _routeService.getRoute(booking.routeId),
+              builder: (context, routeSnapshot) {
+                if (!routeSnapshot.hasData) {
+                  return const Card(
+                    child: ListTile(
+                      leading: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+
+                final route = routeSnapshot.data;
+                if (route == null) {
+                  return const Card(
+                    child: ListTile(
+                      title: Text('Маршрут не найден'),
+                    ),
+                  );
+                }
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${route.startPoint} → ${route.endPoint}',
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                            ),
+                            _buildStatusChip(booking.status),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Отправление: ${_dateFormat.format(route.departureTime)}',
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Забронировано мест: ${booking.seats}',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            Text(
+                              '${booking.totalPrice} ₽',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                            ),
+                          ],
+                        ),
+                        if (booking.status == BookingStatus.pending) ...[
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () {
+                                    // TODO: Implement cancel booking
+                                  },
+                                  child: const Text('Отменить'),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    // TODO: Implement contact driver
+                                  },
+                                  child: const Text('Связаться с водителем'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
         );
       },
     );
@@ -233,13 +215,13 @@ class _MyRidesScreenState extends State<MyRidesScreen> with SingleTickerProvider
         color = Colors.green;
         text = 'Подтверждено';
         break;
-      case BookingStatus.completed:
-        color = Colors.blue;
-        text = 'Завершено';
-        break;
       case BookingStatus.cancelled:
         color = Colors.red;
         text = 'Отменено';
+        break;
+      case BookingStatus.noShow:
+        color = Colors.red;
+        text = 'Не явился';
         break;
     }
 

@@ -7,6 +7,9 @@ import 'package:kursovoi1/screens/home_screen.dart';
 import 'package:kursovoi1/screens/profile_screen.dart';
 import 'package:kursovoi1/screens/auth/login_screen.dart';
 import 'package:kursovoi1/services/auth_service.dart';
+import 'package:kursovoi1/screens/admin/create_route_screen.dart';
+import 'package:kursovoi1/screens/passenger/booking_history_screen.dart';
+import 'package:kursovoi1/screens/passenger/routes_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -113,60 +116,87 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     Widget _getScreen() {
+      switch (_selectedIndex) {
+        case 0:
+          if (_currentUser!.role == UserRole.admin) {
+            return const AdminRoutesScreen();
+          } else if (_currentUser!.role == UserRole.driver) {
+            return const DriverRoutesScreen();
+          } else {
+            return const RoutesScreen();
+          }
+        case 1:
+          return const BookingHistoryScreen();
+        case 2:
+          return const ProfileScreen();
+        default:
+          if (_currentUser!.role == UserRole.admin) {
+            return const AdminRoutesScreen();
+          } else if (_currentUser!.role == UserRole.driver) {
+            return const DriverRoutesScreen();
+          } else {
+            return const RoutesScreen();
+          }
+      }
+    }
+
+    String _getTitle() {
+      if (_currentUser!.role == UserRole.passenger) {
+        switch (_selectedIndex) {
+          case 0:
+            return 'Доступные поездки';
+          case 1:
+            return 'История';
+          case 2:
+            return 'Профиль';
+          default:
+            return 'Доступные поездки';
+        }
+      }
+      
+      if (_selectedIndex == 1) return 'Профиль';
       switch (_currentUser!.role) {
         case UserRole.admin:
-          print('MainScreen: показываем экран администратора');
-          return const AdminRoutesScreen();
+          return 'Управление маршрутами';
         case UserRole.driver:
-          print('MainScreen: показываем экран водителя');
-          return const DriverRoutesScreen();
-        case UserRole.user:
-          print('MainScreen: показываем экран пользователя');
-          return const HomeScreen();
+          return 'Мои маршруты';
+        default:
+          return 'Доступные поездки';
+      }
+    }
+
+    String _getBottomNavLabel() {
+      switch (_selectedIndex) {
+        case 0:
+          return 'Маршруты';
+        case 1:
+          return 'Профиль';
+        case 2:
+          return 'Профиль';
+        default:
+          return 'Маршруты';
       }
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          _selectedIndex == 0
-              ? (_currentUser!.role == UserRole.admin
-                  ? 'Маршруты'
-                  : _currentUser!.role == UserRole.driver
-                      ? 'Мои маршруты'
-                      : 'Главная')
-              : 'Профиль',
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () async {
-              setState(() {
-                _isLoading = true;
-              });
-              await _initializeUser();
-            },
-          ),
-        ],
+        title: Text(_getTitle()),
+        automaticallyImplyLeading: false,
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          setState(() {
-            _isLoading = true;
-          });
-          await _initializeUser();
-        },
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: SizedBox(
-            height: MediaQuery.of(context).size.height,
-            child: IndexedStack(
-              index: _selectedIndex,
-              children: [
-                _getScreen(),
+      body: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height,
+          child: IndexedStack(
+            index: _selectedIndex,
+            children: [
+              _getScreen(),
+              if (_currentUser!.role == UserRole.passenger)
+                const BookingHistoryScreen()
+              else
                 const ProfileScreen(),
-              ],
-            ),
+              const ProfileScreen(),
+            ],
           ),
         ),
       ),
@@ -179,13 +209,14 @@ class _MainScreenState extends State<MainScreen> {
         },
         items: [
           BottomNavigationBarItem(
-            icon: const Icon(Icons.home),
-            label: _currentUser!.role == UserRole.admin
-                ? 'Маршруты'
-                : _currentUser!.role == UserRole.driver
-                    ? 'Мои маршруты'
-                    : 'Главная',
+            icon: const Icon(Icons.directions_bus),
+            label: _getBottomNavLabel(),
           ),
+          if (_currentUser!.role == UserRole.passenger)
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.history),
+              label: 'История',
+            ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.person),
             label: 'Профиль',

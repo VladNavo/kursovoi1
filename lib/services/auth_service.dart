@@ -8,53 +8,27 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  User? get firebaseUser => _auth.currentUser;
+
   // Получить текущего пользователя
   Future<UserModel?> get currentUser async {
     final user = _auth.currentUser;
-    print('Текущий пользователь Firebase: ${user?.email}');
-    if (user == null) {
-      print('Пользователь Firebase не найден');
+    if (user == null) return null;
+
+    print('AuthService: получение данных пользователя для ${user.email}');
+    print('AuthService: ID пользователя: ${user.uid}');
+
+    final doc = await _firestore.collection('users').doc(user.uid).get();
+    if (!doc.exists) {
+      print('AuthService: документ пользователя не найден');
       return null;
     }
 
-    try {
-      final doc = await _firestore.collection('users').doc(user.uid).get();
-      print('Документ пользователя существует: ${doc.exists}');
-      if (!doc.exists) {
-        print('Документ пользователя не найден в Firestore');
-        return null;
-      }
+    final data = doc.data()!;
+    print('AuthService: данные пользователя: $data');
+    print('AuthService: роль пользователя: ${data['role']}');
 
-      final data = doc.data();
-      if (data == null) {
-        print('Данные пользователя пустые');
-        return null;
-      }
-
-      final bookings = data['bookings'] as List<dynamic>?;
-      final roleString = data['role'] as String?;
-      print('Роль пользователя из Firestore: $roleString');
-
-      return UserModel(
-        id: user.uid,
-        name: data['name'] as String? ?? user.displayName ?? user.email?.split('@')[0] ?? 'Пользователь',
-        email: data['email'] as String? ?? user.email ?? '',
-        phone: data['phone'] as String? ?? user.phoneNumber ?? '',
-        role: roleString != null 
-            ? UserRole.values.firstWhere(
-                (role) => role.toString().split('.').last == roleString,
-                orElse: () => UserRole.user,
-              )
-            : UserRole.user,
-        bonusPoints: (data['bonusPoints'] as num?)?.toInt() ?? 0,
-        bookings: bookings?.map((e) => e.toString()).toList() ?? const [],
-        displayName: data['displayName'] as String? ?? user.displayName,
-        photoURL: data['photoURL'] as String? ?? user.photoURL,
-      );
-    } catch (e) {
-      print('Ошибка при получении данных пользователя: $e');
-      return null;
-    }
+    return UserModel.fromMap({...data, 'id': doc.id});
   }
 
   // Поток для отслеживания состояния аутентификации
@@ -83,12 +57,12 @@ class AuthService {
           name: data['name'] as String? ?? user.displayName ?? user.email?.split('@')[0] ?? 'Пользователь',
           email: data['email'] as String? ?? user.email ?? '',
           phone: data['phone'] as String? ?? user.phoneNumber ?? '',
-          role: roleString != null 
+          role: data['role'] != null
               ? UserRole.values.firstWhere(
-                  (role) => role.toString().split('.').last == roleString,
-                  orElse: () => UserRole.user,
+                  (e) => e.toString() == 'UserRole.${data['role']}',
+                  orElse: () => UserRole.passenger,
                 )
-              : UserRole.user,
+              : UserRole.passenger,
           bonusPoints: (data['bonusPoints'] as num?)?.toInt() ?? 0,
           bookings: bookings?.map((e) => e.toString()).toList() ?? const [],
           displayName: data['displayName'] as String? ?? user.displayName,
@@ -165,11 +139,15 @@ class AuthService {
       final user = userCredential.user;
       if (user == null) return null;
 
+      // Получаем данные пользователя из Firestore
       final doc = await _firestore.collection('users').doc(user.uid).get();
       if (!doc.exists) return null;
 
       final data = doc.data();
       if (data == null) return null;
+
+      // Обновляем токен пользователя
+      await user.getIdToken(true);
 
       final bookings = data['bookings'] as List<dynamic>?;
       final roleString = data['role'] as String?;
@@ -179,12 +157,12 @@ class AuthService {
         name: data['name'] as String? ?? user.displayName ?? user.email?.split('@')[0] ?? 'Пользователь',
         email: data['email'] as String? ?? user.email ?? '',
         phone: data['phone'] as String? ?? user.phoneNumber ?? '',
-        role: roleString != null 
+        role: data['role'] != null
             ? UserRole.values.firstWhere(
-                (role) => role.toString().split('.').last == roleString,
-                orElse: () => UserRole.user,
+                (e) => e.toString() == 'UserRole.${data['role']}',
+                orElse: () => UserRole.passenger,
               )
-            : UserRole.user,
+            : UserRole.passenger,
         bonusPoints: (data['bonusPoints'] as num?)?.toInt() ?? 0,
         bookings: bookings?.map((e) => e.toString()).toList() ?? const [],
         displayName: data['displayName'] as String? ?? user.displayName,
@@ -216,5 +194,65 @@ class AuthService {
       print('Ошибка при сбросе пароля: $e');
       return false;
     }
+  }
+
+  Future<void> updateUserToken() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      if (!userDoc.exists) return;
+
+      final data = userDoc.data()!;
+      final role = data['role'] as String?;
+
+      if (role != null) {
+        await user.getIdToken(true); // Обновляем токен
+        print('AuthService: токен пользователя обновлен с ролью $role');
+      }
+    } catch (e) {
+      print('AuthService: ошибка при обновлении токена: $e');
+    }
+  }
+
+  Future<void> updateUserName(String name) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    await _firestore.collection('users').doc(user.uid).update({
+      'name': name,
+    });
+  }
+
+  Future<UserModel?> _createUserFromFirestore(User user) async {
+    try {
+      final doc = await _firestore.collection('users').doc(user.uid).get();
+      if (!doc.exists) return null;
+
+      final data = doc.data()!;
+      return UserModel.fromMap({
+        ...data,
+        'id': user.uid,
+        'name': data['name'] as String? ?? user.displayName ?? 'Пользователь',
+        'email': user.email ?? '',
+        'phone': user.phoneNumber ?? '',
+        'role': data['role'] as String,
+        'photoURL': user.photoURL,
+      });
+    } catch (e) {
+      print('AuthService: ошибка при получении данных пользователя - $e');
+      return null;
+    }
+  }
+
+  Future<UserModel?> getCurrentUser() async {
+    final user = _auth.currentUser;
+    if (user == null) return null;
+
+    final doc = await _firestore.collection('users').doc(user.uid).get();
+    if (!doc.exists) return null;
+
+    return UserModel.fromMap(doc.data()!);
   }
 } 

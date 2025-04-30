@@ -19,7 +19,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _phoneController = TextEditingController();
   final _authService = AuthService();
   bool _isLoading = false;
-  UserRole _selectedRole = UserRole.user;
+  UserRole _selectedRole = UserRole.passenger;
 
   @override
   void dispose() {
@@ -209,12 +209,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   String _getRoleName(UserRole role) {
     switch (role) {
-      case UserRole.user:
-        return 'Обычный пользователь';
-      case UserRole.driver:
-        return 'Водитель';
       case UserRole.admin:
         return 'Администратор';
+      case UserRole.driver:
+        return 'Водитель';
+      case UserRole.passenger:
+        return 'Пассажир';
     }
   }
 } 

@@ -3,6 +3,9 @@ import 'package:kursovoi1/models/route_model.dart';
 import 'package:kursovoi1/models/user_model.dart';
 import 'package:kursovoi1/services/auth_service.dart';
 import 'package:kursovoi1/services/route_service.dart';
+import 'package:kursovoi1/screens/driver/create_route_screen.dart';
+import 'package:kursovoi1/screens/driver/route_details_screen.dart';
+import 'package:intl/intl.dart';
 
 class DriverRoutesScreen extends StatefulWidget {
   const DriverRoutesScreen({super.key});
@@ -14,7 +17,9 @@ class DriverRoutesScreen extends StatefulWidget {
 class _DriverRoutesScreenState extends State<DriverRoutesScreen> {
   final _routeService = RouteService();
   final _authService = AuthService();
+  final _dateFormat = DateFormat('dd.MM.yyyy HH:mm');
   UserModel? _currentUser;
+  bool _showCompletedRoutes = false;
 
   @override
   void initState() {
@@ -38,74 +43,131 @@ class _DriverRoutesScreenState extends State<DriverRoutesScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Мои маршруты'),
-      ),
-      body: StreamBuilder<List<RouteModel>>(
-        stream: _routeService.getDriverRoutes(_currentUser!.id),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text('Ошибка: ${snapshot.error}'));
-          }
-
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final routes = snapshot.data!;
-          if (routes.isEmpty) {
-            return const Center(
-              child: Text('У вас пока нет маршрутов'),
-            );
-          }
-
-          return ListView.builder(
-            itemCount: routes.length,
-            itemBuilder: (context, index) {
-              final route = routes[index];
-              return Card(
-                margin: const EdgeInsets.all(8.0),
-                child: ListTile(
-                  title: Text('${route.startPoint} → ${route.endPoint}'),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Время отправления: ${route.departureTime.toString()}'),
-                      Text('Свободных мест: ${route.availableSeats}'),
-                      Text('Цена: ${route.price} руб.'),
-                      Text('Пассажиров: ${route.passengerIds.length}'),
-                    ],
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
                     onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Удалить маршрут?'),
-                          content: const Text('Вы уверены, что хотите удалить этот маршрут?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Отмена'),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                _routeService.deleteRoute(route.id);
-                                Navigator.pop(context);
-                              },
-                              child: const Text('Удалить'),
-                            ),
-                          ],
-                        ),
-                      );
+                      setState(() {
+                        _showCompletedRoutes = false;
+                      });
                     },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: !_showCompletedRoutes
+                          ? Theme.of(context).primaryColor
+                          : Colors.grey[300],
+                      foregroundColor: !_showCompletedRoutes
+                          ? Colors.white
+                          : Colors.black,
+                    ),
+                    child: const Text('Активные'),
                   ),
                 ),
-              );
-            },
-          );
-        },
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _showCompletedRoutes = true;
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _showCompletedRoutes
+                          ? Theme.of(context).primaryColor
+                          : Colors.grey[300],
+                      foregroundColor: _showCompletedRoutes
+                          ? Colors.white
+                          : Colors.black,
+                    ),
+                    child: const Text('Завершенные'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (!_showCompletedRoutes)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CreateRouteScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('Создать маршрут'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 48),
+                ),
+              ),
+            ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: StreamBuilder<List<RouteModel>>(
+              stream: _routeService.getDriverRoutes(
+                _currentUser!.id,
+                status: _showCompletedRoutes ? RouteStatus.completed : RouteStatus.active,
+              ),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text('Ошибка: ${snapshot.error}'),
+                  );
+                }
+
+                final routes = snapshot.data ?? [];
+
+                if (routes.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      'У вас нет маршрутов',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  itemCount: routes.length,
+                  itemBuilder: (context, index) {
+                    final route = routes[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: ListTile(
+                        title: Text('${route.startPoint} → ${route.endPoint}'),
+                        subtitle: Text(
+                          'Отправление: ${_dateFormat.format(route.departureTime)}\n'
+                          'Свободных мест: ${route.availableSeats}',
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.people),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => RouteDetailsScreen(route: route),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

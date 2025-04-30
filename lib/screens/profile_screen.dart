@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:kursovoi1/models/user_model.dart';
 import 'package:kursovoi1/screens/auth/login_screen.dart';
 import 'package:kursovoi1/services/auth_service.dart';
+import 'package:kursovoi1/screens/driver/vehicle_edit_screen.dart';
+import 'package:kursovoi1/services/vehicle_service.dart';
+import 'package:kursovoi1/models/vehicle_model.dart';
+import 'package:kursovoi1/services/driver_stats_service.dart';
+import 'package:intl/intl.dart';
+import 'package:kursovoi1/screens/admin/users_management_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -12,8 +18,13 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final _authService = AuthService();
+  final _vehicleService = VehicleService();
+  final _driverStatsService = DriverStatsService();
+  final _numberFormat = NumberFormat.currency(locale: 'ru_RU', symbol: '₽');
   UserModel? _currentUser;
   bool _isLoading = false;
+  VehicleModel? _vehicle;
+  Map<String, dynamic>? _driverStats;
 
   @override
   void initState() {
@@ -26,6 +37,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (mounted) {
       setState(() {
         _currentUser = user;
+      });
+      if (user?.role == UserRole.driver) {
+        await Future.wait([
+          _loadVehicle(user!.id),
+          _loadDriverStats(user.id),
+        ]);
+      }
+    }
+  }
+
+  Future<void> _loadVehicle(String driverId) async {
+    final vehicle = await _vehicleService.getVehicleByDriverId(driverId);
+    if (mounted) {
+      setState(() {
+        _vehicle = vehicle;
+      });
+    }
+  }
+
+  Future<void> _loadDriverStats(String driverId) async {
+    final stats = await _driverStatsService.getDriverStats(driverId);
+    if (mounted) {
+      setState(() {
+        _driverStats = stats;
       });
     }
   }
@@ -54,7 +89,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _isLoading = true);
     try {
       await _authService.signOut();
-      // Не используем Navigator, так как AuthWrapper автоматически перенаправит на LoginScreen
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (route) => false,
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -74,29 +114,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return 'Администратор';
       case UserRole.driver:
         return 'Водитель';
-      case UserRole.user:
+      case UserRole.passenger:
         return 'Пассажир';
+    }
+  }
+
+  Future<void> _showEditNameDialog() async {
+    final controller = TextEditingController(text: _currentUser!.name);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Изменить имя'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Имя',
+            hintText: 'Введите ваше имя',
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (controller.text.isNotEmpty) {
+                Navigator.pop(context, controller.text);
+              }
+            },
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty) {
+      setState(() => _isLoading = true);
+      try {
+        await _authService.updateUserName(result);
+        await _loadCurrentUser();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Имя успешно обновлено')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Ошибка при обновлении имени: $e')),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (_currentUser == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Профиль'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _isLoading ? null : _handleSignOut,
-          ),
-        ],
-      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -119,9 +203,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                _currentUser!.name,
-                                style: Theme.of(context).textTheme.headlineSmall,
+                              Row(
+                                children: [
+                                  Text(
+                                    _currentUser!.name,
+                                    style: Theme.of(context).textTheme.headlineSmall,
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.edit, size: 20),
+                                    onPressed: () => _showEditNameDialog(),
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: 4),
                               Text(
@@ -133,8 +225,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ],
                           ),
                         ),
+                        IconButton(
+                          icon: const Icon(Icons.logout),
+                          color: Theme.of(context).colorScheme.error,
+                          onPressed: _isLoading ? null : _handleSignOut,
+                          tooltip: 'Выйти из аккаунта',
+                        ),
                       ],
                     ),
+                    if (_isLoading)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8.0),
+                        child: LinearProgressIndicator(),
+                      ),
                   ],
                 ),
               ),
@@ -167,28 +270,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Бонусная программа',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 16),
-                    ListTile(
-                      leading: const Icon(Icons.star),
-                      title: const Text('Бонусные баллы'),
-                      subtitle: Text(_currentUser!.bonusPoints.toString()),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (_currentUser!.role == UserRole.driver || _currentUser!.role == UserRole.admin)
+            if (_currentUser!.role == UserRole.passenger)
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -196,24 +278,185 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Статистика',
+                        'Бонусная программа',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       const SizedBox(height: 16),
                       ListTile(
-                        leading: const Icon(Icons.directions_car),
-                        title: Text(_currentUser!.role == UserRole.driver
-                            ? 'Мои маршруты'
-                            : 'Все маршруты'),
-                        subtitle: const Text('Просмотр и управление маршрутами'),
-                        onTap: () {
-                          Navigator.of(context).pop();
-                        },
+                        leading: const Icon(Icons.star),
+                        title: const Text('Бонусные баллы'),
+                        subtitle: Text(_currentUser!.bonusPoints.toString()),
                       ),
                     ],
                   ),
                 ),
               ),
+            if (_currentUser!.role == UserRole.driver) ...[
+              if (_driverStats != null) ...[
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Статистика за ${DateTime.now().year} год',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.refresh),
+                              onPressed: () async {
+                                setState(() => _isLoading = true);
+                                await _loadDriverStats(_currentUser!.id);
+                                setState(() => _isLoading = false);
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        ListTile(
+                          leading: const Icon(Icons.directions_bus),
+                          title: const Text('Всего поездок'),
+                          subtitle: Text(_driverStats!['totalTrips'].toString()),
+                        ),
+                        const Divider(),
+                        ListTile(
+                          leading: const Icon(Icons.attach_money),
+                          title: const Text('Общий заработок'),
+                          subtitle: Text(_numberFormat.format(_driverStats!['totalEarnings'])),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Статистика по месяцам',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        ...(_driverStats!['sortedMonths'] as List<String>).map((month) {
+                          final stats = _driverStats!['monthlyStats'][month];
+                          final [monthNum, year] = month.split('.').map(int.parse).toList();
+                          final monthName = DateFormat('MMMM', 'ru_RU').format(DateTime(year, monthNum));
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    monthName,
+                                    style: Theme.of(context).textTheme.titleMedium,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text('Поездок: ${stats['trips']}'),
+                                      Text('Заработок: ${_numberFormat.format(stats['earnings'])}'),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Транспорт',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const VehicleEditScreen(),
+                                ),
+                              ).then((_) => _loadVehicle(_currentUser!.id));
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      if (_vehicle != null) ...[
+                        ListTile(
+                          leading: const Icon(Icons.directions_car),
+                          title: Text('${_vehicle!.brand} ${_vehicle!.model}'),
+                          subtitle: Text('Гос. номер: ${_vehicle!.licensePlate}'),
+                        ),
+                        const Divider(),
+                        ListTile(
+                          leading: const Icon(Icons.color_lens),
+                          title: const Text('Цвет'),
+                          subtitle: Text(_vehicle!.color),
+                        ),
+                        const Divider(),
+                        ListTile(
+                          leading: const Icon(Icons.calendar_today),
+                          title: const Text('Год выпуска'),
+                          subtitle: Text(_vehicle!.year),
+                        ),
+                        const Divider(),
+                        ListTile(
+                          leading: const Icon(Icons.people),
+                          title: const Text('Количество мест'),
+                          subtitle: Text(_vehicle!.seats.toString()),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => VehicleEditScreen(vehicle: _vehicle),
+                              ),
+                            ).then((_) => _loadVehicle(_currentUser!.id));
+                          },
+                          child: const Text('Редактировать'),
+                        ),
+                      ] else
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Text('Транспорт не добавлен'),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            if (_currentUser?.role == UserRole.admin)
+              ListTile(
+                leading: const Icon(Icons.people),
+                title: const Text('Управление пользователями'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const UsersManagementScreen(),
+                    ),
+                  );
+                },
+              ),
+            const SizedBox(height: 16),
           ],
         ),
       ),

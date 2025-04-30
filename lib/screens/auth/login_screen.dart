@@ -135,6 +135,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       },
                       child: const Text('Нет аккаунта? Зарегистрироваться'),
                     ),
+                    TextButton(
+                      onPressed: () => _showResetPasswordDialog(),
+                      child: const Text('Забыли пароль?'),
+                    ),
                   ],
                 ),
               ),
@@ -145,14 +149,81 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Future<void> _showResetPasswordDialog() async {
+    final emailController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Восстановление пароля'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: emailController,
+            decoration: const InputDecoration(
+              labelText: 'Email',
+              hintText: 'Введите ваш email',
+            ),
+            keyboardType: TextInputType.emailAddress,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Пожалуйста, введите email';
+              }
+              if (!value.contains('@')) {
+                return 'Пожалуйста, введите корректный email';
+              }
+              return null;
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (formKey.currentState!.validate()) {
+                try {
+                  final success = await _authService.resetPassword(emailController.text);
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          success
+                              ? 'Инструкции по восстановлению пароля отправлены на ваш email'
+                              : 'Ошибка при отправке инструкций',
+                        ),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Ошибка: ${e.toString()}')),
+                    );
+                  }
+                }
+              }
+            },
+            child: const Text('Восстановить'),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _getRoleName(UserRole role) {
     switch (role) {
-      case UserRole.user:
-        return 'Обычный пользователь';
-      case UserRole.driver:
-        return 'Водитель';
       case UserRole.admin:
         return 'Администратор';
+      case UserRole.driver:
+        return 'Водитель';
+      case UserRole.passenger:
+        return 'Пассажир';
     }
   }
 } 
